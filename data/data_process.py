@@ -10,6 +10,7 @@ import faiss
 import Stemmer
 
 from langchain_core.documents import Document
+from llama_index.core import Document as Doc_llama_index
 from langchain_community.vectorstores import FAISS
 from langchain_huggingface.embeddings.huggingface import HuggingFaceEmbeddings
 from langchain_community.vectorstores.faiss import DistanceStrategy
@@ -139,7 +140,7 @@ def create_BM25_retriever(collection_path:str = "passage_corpus.json"):
   with open(collection_path) as handle:
       for line in tqdm(handle):
           passage = json.loads(line)
-          docs.append(Document(metadata={"id_":passage["ref_id"]}, text=passage["ref_string"]))
+          docs.append(Doc_llama_index(metadata={"id_":passage["ref_id"]}, text=passage["ref_string"]))
 
   parser = SimpleFileNodeParser()
   md_nodes = parser.get_nodes_from_documents(docs)
@@ -265,14 +266,15 @@ def get_collate_fn(vs_context, bertopics, tokenizer, model_embedding, vector_sto
   return collate_fn
 
 if __name__ == '__main__':
-    train_file = "data/raw/train/train_conversation.json"
-    test_file = "data/raw/test/test_conversation.json"
+    train_file = "data/raw/train/new_train_conversation.json"
+    test_file = "data/raw/test/new_test_conversation.json"
+    collection_path = "data/raw/passage_corpus.json"
     bertopic_context = "data/bertopic/BerTopic_corpus_all-MiniLM-L6-v2"
 
     os.makedirs("data/processed", exist_ok=True)
 
-    train_data = RetrieverDataset(train_file, history_num=2,bertopic_context_path=bertopic_context)
-    test_dataset = RetrieverDataset(test_file,history_num=2, training=False,bertopic_context_path=bertopic_context)
+    train_data = RetrieverDataset(train_file, history_num=2,bertopic_context_path=bertopic_context,collection_path=collection_path)
+    test_dataset = RetrieverDataset(test_file,history_num=2, training=False,bertopic_context_path=bertopic_context,collection_path=collection_path)
 
     with open('processed/train_data_bertopic_all-MiniLM-L6-v2_negBM25.pkl', 'wb') as f:
       pickle.dump(train_data.pre_data, f)
