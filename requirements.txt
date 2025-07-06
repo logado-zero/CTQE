@@ -10,3 +10,6 @@ torch @ https://download.pytorch.org/whl/cu124/torch-2.6.0%2Bcu124-cp311-cp311-l
 pytrec_eval
 tqdm
 bertopic
+llama-index==0.12.46
+llama-index-retrievers-bm25==0.5.2
+PyStemmer==2.2.0.3

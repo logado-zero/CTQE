@@ -91,7 +91,7 @@ def create_vector_store(doc_path:str = "passage_corpus.json",model_name: str="se
     # Create Bertopic collection
     topic_model = create_bertopic_collection(passage_collect=passage_collect,model_name=model_name)
     os.makedirs("data/bertopic", exist_ok=True)
-    topic_model.save(f"./BerTopic_corpus_{save_name}")
+    topic_model.save(f"data/bertopic/BerTopic_corpus_{save_name}")
 
 if __name__ == '__main__':
     doc_path = "data/raw/passage_corpus.json"
