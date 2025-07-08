@@ -5,6 +5,7 @@ langchain-huggingface==0.3.0
 gupload==1.1.0
 faiss-gpu-cu12==1.11.0
 bertopic==0.17.0
+sentence-transformers==5.0.0
 pynndescent==0.5.10
 torch @ https://download.pytorch.org/whl/cu124/torch-2.6.0%2Bcu124-cp311-cp311-linux_x86_64.whl
 pytrec_eval
@@ -12,3 +13,5 @@ tqdm
 llama-index==0.12.46
 llama-index-retrievers-bm25==0.5.2
 PyStemmer==2.2.0.3
+transformers==4.35.2
+peft==0.7.1

@@ -276,8 +276,8 @@ if __name__ == '__main__':
     train_data = RetrieverDataset(train_file, history_num=2,bertopic_context_path=bertopic_context,collection_path=collection_path)
     test_dataset = RetrieverDataset(test_file,history_num=2, training=False,bertopic_context_path=bertopic_context,collection_path=collection_path)
 
-    with open('processed/train_data_bertopic_all-MiniLM-L6-v2_negBM25.pkl', 'wb') as f:
+    with open('data/processed/train_data_bertopic_all-MiniLM-L6-v2_negBM25.pkl', 'wb') as f:
       pickle.dump(train_data.pre_data, f)
-    with open('processed/test_dataset_bertopic_all-MiniLM-L6-v2_negBM25.pkl', 'wb') as f:
+    with open('data/processed/test_dataset_bertopic_all-MiniLM-L6-v2_negBM25.pkl', 'wb') as f:
       pickle.dump(test_dataset.pre_data, f)
 
