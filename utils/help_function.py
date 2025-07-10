@@ -1,14 +1,15 @@
 from sklearn.metrics.pairwise import cosine_similarity
 import torch
+import torch.nn as nn
+
 from tqdm.auto import tqdm
 import numpy as np
+import os
 
 def train(data_loader, model, criterion, optimizer, device):
     model.train()
     epoch_losses = []
     epoch_sim = []
-    epoch_acc = []
-    loss_2 = []
     for batch in tqdm(data_loader, desc="training..."):
         #Load input
         mean_ids = batch["mean_query"].to(device)
@@ -37,8 +38,6 @@ def evaluate(data_loader, model, criterion,device):
     model.eval()
     epoch_losses = []
     epoch_sim = []
-    epoch_acc = []
-    loss_2 = []
     with torch.no_grad():
         for batch in tqdm(data_loader, desc="evaluating..."):
             #Load input
@@ -57,19 +56,10 @@ def evaluate(data_loader, model, criterion,device):
             # Check loss
             loss =  criterion(output, label, batch["batch_relevant"], batch_irrelevant)
 
-            # cls = torch.diagonal(torch.Tensor(cosine_similarity(mean_ids.detach().cpu().numpy(),label.detach().cpu().numpy())).cuda(),0)
-            # cls = (cls>0.95).float()
-            # loss2 = criterion2(model.cls_output.squeeze(), cls)
-            # accuracy = get_accuracy(model.cls_output.squeeze(), cls)
-            # loss = loss*0.8 + loss2*0.2
-            # epoch_acc.append(accuracy.cpu().numpy())
-            # loss_2.append(loss2.item())
-
             epoch_losses.append(loss.item())
             epoch_sim.append(similarity_score)
 
     return np.mean(epoch_losses), np.mean(epoch_sim)
-    # return np.mean(epoch_losses), np.mean(epoch_sim), np.mean(epoch_acc), np.mean(loss_2)
 
 def get_accuracy(prediction, label):
 
@@ -80,21 +70,40 @@ def get_accuracy(prediction, label):
     return accuracy
 
 class EarlyStopper:
-    def __init__(self, patience=1, min_delta=0):
+    def __init__(self, patience=1, min_delta=0, save_path="result/ctqe"):
         self.patience = patience
         self.min_delta = min_delta
         self.counter = 0
         self.min_validation_loss = float('inf')
+        self.save_path = save_path
 
     def early_stop(self, validation_loss, model):
-        torch.save(model.state_dict(), "merge_emb_last.pt")
+        torch.save(model.state_dict(), os.path.join(self.save_path,"ctqe_last.pt"))
         if validation_loss < self.min_validation_loss:
             self.min_validation_loss = validation_loss
             self.counter = 0
-            torch.save(model.state_dict(), "merge_emb.pt")
+            torch.save(model.state_dict(), os.path.join(self.save_path,"ctqe_most.pt"))
 
         elif validation_loss > (self.min_validation_loss + self.min_delta):
             self.counter += 1
             if self.counter >= self.patience:
                 return True
         return False
+    
+def initialize_weights(m):
+    """
+    Initialize weights for model
+    """
+    if isinstance(m, nn.Linear):
+        nn.init.xavier_normal_(m.weight)
+        if m.bias is not None:
+          nn.init.zeros_(m.bias)
+    elif isinstance(m, nn.LSTM):
+        for name, param in m.named_parameters():
+            if "bias" in name:
+                nn.init.zeros_(param)
+            elif "weight" in name:
+                nn.init.orthogonal_(param)
+
+def count_parameters(model):
+    return sum(p.numel() for p in model.parameters() if p.requires_grad)
