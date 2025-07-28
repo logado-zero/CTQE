@@ -1,11 +1,14 @@
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 
 import numpy as np
 import math
 
 # attention layer code inspired from: https://discuss.pytorch.org/t/self-attention-on-words-and-masking/5671/4
 class Attention(nn.Module):
+    """Attention mechanism for processing sequences.
+    This module computes attention weights and applies them to the input sequences."""
     def __init__(self, hidden_size, batch_first=False):
         super(Attention, self).__init__()
 
@@ -37,12 +40,34 @@ class Attention(nn.Module):
 
         attentions = torch.softmax(F.relu(weights.squeeze()), dim=-1)
 
+        ### Edit for TensoreRT
         # create mask based on the sentence lengths
-        mask = torch.ones(attentions.size()).to(attentions.device)
-        for i, l in enumerate(lengths):  # skip the first sentence
-            if l < max_len:
-                mask[i, l:] = 0
-        mask.requires_grad = True
+        # Vectorized mask creation
+        device = attentions.device
+        # lengths: (batch_size,) - ensure it's a tensor on the correct device and dtype
+        if not torch.is_tensor(lengths):
+            lengths = torch.tensor(lengths, device=device)
+        else:
+            lengths = lengths.to(device)
+        # Create a mask of shape (batch_size, max_len)
+        idxs = torch.arange(max_len, device=device).unsqueeze(0)  # (1, max_len)
+        mask = (idxs < lengths.unsqueeze(1)).float()  # (batch_size, max_len)
+        
+        ### End Edit for TensoreRT
+        ### Old code
+        # # apply mask and renormalize attention scores (weights)
+        # masked = attentions * mask
+        # _sums = masked.sum(-1, keepdim=True)  # sums per row
+
+        # attentions = masked.div(_sums + 1e-8)  # add epsilon to avoid division by zero
+
+        # mask = torch.ones(attentions.size()).to(attentions.device)
+        # for i, l in enumerate(lengths):  # skip the first sentence
+        #     if l < max_len:
+        #         mask[i, l:] = 0
+        # mask.requires_grad = True
+        ### End Old code
+
         # apply mask and renormalize attention scores (weights)
         masked = attentions * mask
         _sums = masked.sum(-1).unsqueeze(-1)  # sums per row
@@ -58,7 +83,7 @@ class Attention(nn.Module):
         return representations, attentions
 
 class PositionalEncoding(nn.Module):
-
+    """Positional Encoding for Transformer models."""
     def __init__(self, d_model, max_len=5000):
         """
         Inputs

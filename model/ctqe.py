@@ -71,15 +71,22 @@ class CTQE(nn.Module):
         src, _ = self.mutihead_query(ctx_weight, q_enc_, ids)     
 
         x = torch.cat([ids, self.dropout(src), self.dropout(ctx_att)], dim=1) 
+        ### Start Old code
+        # packed = nn.utils.rnn.pack_padded_sequence(x, [x.size(1)]*x.size(0), batch_first=True, enforce_sorted=False)
+        # y, lengths = nn.utils.rnn.pad_packed_sequence(packed,batch_first=True)
+        # prediction, self.att_weight_query = self.att_query(y, lengths)
+        ### End Old code
+        ### Start Edit for TensorTR
+        lengths = torch.full((x.size(0),), x.size(1), dtype=torch.long, device=x.device)
+        prediction, att_weight_query = self.att_query(x, lengths)
+        # self.att_weight_query = att_weight_query
+        ### End Edit for TensorTR
 
-        packed = nn.utils.rnn.pack_padded_sequence(x, [x.size(1)]*x.size(0), batch_first=True, enforce_sorted=False)
-        y, lengths = nn.utils.rnn.pad_packed_sequence(packed,batch_first=True)
-        prediction, self.att_weight_query = self.att_query(y, lengths)
-
-        self.cls_output = cls
+        # self.cls_output = cls
 
         prediction = cls*prediction + (1-cls)*mean_ids if self.run_cls else prediction
 
 
 
-        return prediction
+        # return prediction
+        return prediction, att_weight_query, cls

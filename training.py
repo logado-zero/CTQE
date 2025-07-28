@@ -24,10 +24,13 @@ if __name__ == '__main__':
     num_heads = 8
 
     # Create DataLoader
+    train_file_path = "data/raw/train/new_train_conversation.json"
     train_dataset_path = "data/processed/train_data_bertopic_all-MiniLM-L6-v2_negBM25.pkl"
     bertopic_context = "data/bertopic/BerTopic_corpus_all-MiniLM-L6-v2"
+    vs_context_path = "data/vector_store_doc/faiss_CORAL_all-MiniLM-L6-v2"
 
-    train_dataset = RetrieverDataset(train_dataset_path, history_num=2,bertopic_context_path=bertopic_context, pre_data_path=train_dataset_path)
+    train_dataset = RetrieverDataset(train_file_path, history_num=2,bertopic_context_path=bertopic_context, pre_data_path=train_dataset_path,
+                                     vs_context_path=vs_context_path)
 
     train_dataset.only_2 = False
     train_size = int(0.7 * len(train_dataset))
@@ -38,9 +41,15 @@ if __name__ == '__main__':
     valid_sampler = SequentialSampler(valid_data)
 
     train_data_loader = DataLoader(
-        train_data, sampler=train_sampler, batch_size=BATCH_SIZE, collate_fn=get_collate_fn(None,train_dataset.total_data.bertopic))
+        train_data, sampler=train_sampler, batch_size=BATCH_SIZE, collate_fn=get_collate_fn(train_dataset.total_data.vs_context,train_dataset.total_data.bertopic,
+                                                                                            tokenizer=train_dataset.tokenizer,
+                                                                                            model_embedding=train_dataset.embedding_model,
+                                                                                            ))
     valid_data_loader = DataLoader(
-        valid_data, sampler=valid_sampler, batch_size=BATCH_SIZE, collate_fn=get_collate_fn(None,train_dataset.total_data.bertopic))
+        valid_data, sampler=valid_sampler, batch_size=BATCH_SIZE, collate_fn=get_collate_fn(train_dataset.total_data.vs_context,train_dataset.total_data.bertopic,
+                                                                                            tokenizer=train_dataset.tokenizer,
+                                                                                            model_embedding=train_dataset.embedding_model,
+                                                                                            ))
 
 
     # Init model
@@ -86,7 +95,6 @@ if __name__ == '__main__':
         metrics["valid_losses"].append(valid_loss)
         metrics["valid_sim"].append(valid_sim)
         print(f"epoch: {epoch}")
-        print(f"cls: {model.cls_output}")
         print(f"train_loss: {train_loss:.5f}, train_sim: {train_sim:.5f}")
         print(f"valid_loss: {valid_loss:.5f}, valid_sim: {valid_sim:.5f}")
 

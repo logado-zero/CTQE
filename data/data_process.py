@@ -23,9 +23,25 @@ from bertopic import BERTopic
 from transformers import AutoTokenizer, AutoModel
 
 class PreprocessedDataset():
+  """
+  Preprocess the dataset for training and evaluation.
+  It reads the conversation data, retrieves relevant documents using BM25,
+  """
   def __init__(self, filename, history_num, training=True, vs_context_path = None, bertopic_context_path=None, \
                model_embedding_name: str ="sentence-transformers/all-MiniLM-L6-v2", batch_encode_size: int = 128,\
                 collection_path:str = "passage_corpus.json"):
+    """
+    Initialize the PreprocessedDataset with the given parameters.
+    Args:
+        filename (str): Path to the JSON file containing conversation data.
+        history_num (int): Number of previous turns to consider as context.
+        training (bool): Whether the dataset is for training or evaluation.
+        vs_context_path (str): Path to the vector store context, if available.
+        bertopic_context_path (str): Path to the Bertopic context, if available.
+        model_embedding_name (str): Name of the model to use for embeddings.
+        batch_encode_size (int): Size of batches for encoding documents.
+        collection_path (str): Path to the collection of passages for BM25 retrieval.
+    """
     self._filename = filename
     self._history_num = history_num
     self.training = training
@@ -34,34 +50,49 @@ class PreprocessedDataset():
     self.batch_encode_size = batch_encode_size
     self.collection_path = collection_path
     self.model_embedding_name = model_embedding_name
+    # Initialize the embedding model
     self.model_embedding = HuggingFaceEmbeddings(
                                 model_name=self.model_embedding_name,
                                 model_kwargs={'device':'cuda:0' if torch.cuda.is_available() else 'cpu'},
                                 encode_kwargs = {'normalize_embeddings': True, 'batch_size': batch_encode_size}
                                 )
+    # Initialize the FAISS index
     self.index_ctx = faiss.IndexFlatIP(self.model_embedding._client.get_sentence_embedding_dimension())
-
+    # Load the conversation data from the specified file
     with open(filename, "r") as f:
       self._total_data = json.load(f)
 
-    if self.bertopic_context_path is None:
-      self.vs_context = FAISS(
+    # Initialize the vector store context
+    self.vs_context = FAISS(
           embedding_function=self.model_embedding,
           index=self.index_ctx,
           docstore=InMemoryDocstore(),
           index_to_docstore_id={},
           distance_strategy = DistanceStrategy.COSINE,
-      ) if  self.vs_context_path is None else FAISS.load_local( self.vs_context_path, self.model_embedding, allow_dangerous_deserialization=True, distance_strategy = DistanceStrategy.COSINE)
-    else:
+      ) if self.vs_context_path is None else FAISS.load_local( self.vs_context_path, self.model_embedding, allow_dangerous_deserialization=True, distance_strategy = DistanceStrategy.COSINE)
+    
+    self.bertopic = None
+    if self.bertopic_context_path is not None:
       self.bertopic = BERTopic.load(self.bertopic_context_path)
 
 
   def batch(self,iterable, n=1):
+    """
+    Yield successive n-sized chunks from iterable.
+    Args:
+        iterable (iterable): The input iterable to be chunked.
+        n (int): The size of each chunk.
+    """
     l = len(iterable)
     for ndx in range(0, l, n):
         yield iterable[ndx:min(ndx + n, l)]
 
   def __call__(self) -> List[Dict]:
+    """
+    Process the dataset to create a list of dictionaries containing conversation turns and their contexts.
+    Returns:
+        List[Dict]: A list of dictionaries where each dictionary represents a conversation turn with its context.
+    """
     res_ls = []
     res_ls_only_2 = []
     context_id = 0
@@ -135,7 +166,13 @@ class PreprocessedDataset():
   
 
 def create_BM25_retriever(collection_path:str = "passage_corpus.json"):
-
+  """
+  Create a BM25 retriever from the provided collection path.
+  Args: 
+      collection_path (str): Path to the JSON file containing the collection of passages.
+  Returns:
+      BM25Retriever: A BM25 retriever initialized with the passages from the collection.
+  """
   docs = []
   with open(collection_path) as handle:
       for line in tqdm(handle):
@@ -159,8 +196,25 @@ def create_BM25_retriever(collection_path:str = "passage_corpus.json"):
 
 
 class RetrieverDataset(torch.utils.data.Dataset):
+    """
+    Dataset class for retrieving and processing conversation data for training, evaluation.
+    It handles the loading of conversation data, retrieval of relevant documents, and preparation of features.
+    """
     def __init__(self, filename,history_num=2, training=True, vs_context_path = None, bertopic_context_path=None,only_2 = False, pre_data_path = None,
                  model_embedding_name: str ="sentence-transformers/all-MiniLM-L6-v2", collection_path:str = "passage_corpus.json"):
+        """
+        Initialize the RetrieverDataset with the given parameters.
+        Args: 
+            filename (str): Path to the JSON file containing conversation data.
+            history_num (int): Number of previous turns to consider as context.
+            training (bool): Whether the dataset is for training or evaluation.
+            vs_context_path (str): Path to the vector store context, if available.
+            bertopic_context_path (str): Path to the Bertopic context, if available.
+            only_2 (bool): If True, only use the first two turns of each conversation.
+            pre_data_path (str): Path to preprocessed data, if available.
+            model_embedding_name (str): Name of the model to use for embeddings.
+            collection_path (str): Path to the collection of passages for BM25 retrieval.
+        """
 
         self._filename = filename
         self._history_num = history_num
@@ -172,7 +226,7 @@ class RetrieverDataset(torch.utils.data.Dataset):
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.embedding_model.to(device)
 
-
+        # Initialize the dataset
         self.total_data = PreprocessedDataset(self._filename,self._history_num,self.training, self.vs_context_path, self.bertopic_context_path,
                                               model_embedding_name="sentence-transformers/all-MiniLM-L6-v2", collection_path=collection_path)
         if pre_data_path is None:
@@ -207,13 +261,16 @@ class RetrieverDataset(torch.utils.data.Dataset):
     
 #Mean Pooling - Take attention mask into account for correct averaging
 def mean_pooling(model_output, attention_mask):
+    """
+    Perform mean pooling on the model output using the attention mask.
+    """
     token_embeddings = model_output[0] #First element of model_output contains all token embeddings
     input_mask_expanded = attention_mask.unsqueeze(-1).expand(token_embeddings.size()).float()
     return torch.sum(token_embeddings * input_mask_expanded, 1) / torch.clamp(input_mask_expanded.sum(1), min=1e-9)
 
-def get_collate_fn(vs_context, bertopics, tokenizer, model_embedding, vector_store, use_embed= True, only_question= False):
+def get_collate_fn(vs_context, bertopics, tokenizer, model_embedding, use_embed= True, only_question= False):
   device = model_embedding.device
-  index_to_docstore_id = vector_store.index_to_docstore_id
+  index_to_docstore_id = vs_context.index_to_docstore_id
   docstore_id_to_index = {y: x for x, y in index_to_docstore_id.items()}
 
   def collate_fn(batch):
@@ -232,9 +289,9 @@ def get_collate_fn(vs_context, bertopics, tokenizer, model_embedding, vector_sto
 
           re = {"question_id": question_id, "question_text": question_text, "relevant_docs_pids":relevant_docs_pids,"embed_query": embed_query[0], "mean_query": mean_query}
         else:
-          batch_relevant = [torch.stack([torch.tensor(vector_store.index.reconstruct_n(docstore_id_to_index[j], 1)[0]) for j in i], dim=0).to(device) if len(i) != 0 else None for i in relevant_docs_pids]
+          batch_relevant = [torch.stack([torch.tensor(vs_context.index.reconstruct_n(docstore_id_to_index[j], 1)[0]) for j in i], dim=0).to(device) if len(i) != 0 else None for i in relevant_docs_pids]
           
-          batch_irrelevant = torch.stack([torch.stack([torch.tensor(vector_store.index.reconstruct_n(docstore_id_to_index[int(j)], 1)[0]) for j in i], dim=0) for i in irrelevant_docs_pids], dim=0).to(device)
+          batch_irrelevant = torch.stack([torch.stack([torch.tensor(vs_context.index.reconstruct_n(docstore_id_to_index[int(j)], 1)[0]) for j in i], dim=0) for i in irrelevant_docs_pids], dim=0).to(device)
           
           context_topics = [i["context_topics"] for i in batch]
           batch_ctx = torch.stack([torch.Tensor(bertopics.topic_embeddings_[i]) for i in context_topics], dim=0).to(device)

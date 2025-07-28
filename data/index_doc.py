@@ -18,6 +18,13 @@ batch_encode_size = 256
 
 
 def create_index(model_name: str="sentence-transformers/all-MiniLM-L6-v2"):
+    """
+    Create a FAISS index with the specified model name.
+    Args:
+        model_name (str): The name of the model to use for embeddings.
+    Returns:
+        FAISS: A FAISS vector store initialized with the specified model.
+    """
     nlp_model = HuggingFaceEmbeddings(
                                     model_name=model_name,
                                     model_kwargs={'device':'cuda:0' if torch.cuda.is_available() else 'cpu'},
@@ -40,8 +47,16 @@ def create_index(model_name: str="sentence-transformers/all-MiniLM-L6-v2"):
     return vector_store
 
 def load_doc(doc_path:str = "passage_corpus.json"):
+    """
+    Load documents from a JSON file and prepare them for vector store creation.
+    Args:
+        doc_path (str): Path to the JSON file containing documents.
+    Returns:
+        List[str]: List of document IDs.
+        List[Document]: List of Document objects containing the text content.
+        List[str]: List of passage strings for Bertopic collection.
+    """
     batch_doc = []
-    embed_collection = None
     # Collection for Bertopic
     passage_collect = []
 
@@ -60,12 +75,25 @@ def load_doc(doc_path:str = "passage_corpus.json"):
     return ls_pid,batch_doc,passage_collect
 
 def create_bertopic_collection(passage_collect:List, model_name:str):
+    """
+    Create a Bertopic collection from the provided passages.
+    Args:
+        passage_collect (List): List of passages to be used for topic modeling.
+        model_name (str): The name of the model to use for embeddings in Bertopic.
+    Returns:
+        BERTopic: A Bertopic model fitted on the provided passages.
+    """
     topic_model = BERTopic(embedding_model=model_name)
     topics, probs = topic_model.fit_transform(passage_collect)
     
     return topic_model
 def create_vector_store(doc_path:str = "passage_corpus.json",model_name: str="sentence-transformers/all-MiniLM-L6-v2"):
-
+    """
+    Create a vector store and Bertopic collection from the provided document path and model name.
+    Args:   
+        doc_path (str): Path to the JSON file containing documents.
+        model_name (str): The name of the model to use for embeddings.
+    """
     save_name = model_name.split("/")[-1]
     ls_pid,batch_doc,passage_collect = load_doc(doc_path)
     vector_store = create_index(model_name)
