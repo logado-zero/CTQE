@@ -27,6 +27,7 @@ class CTQE(nn.Module):
             dropout=dropout_rate,
             batch_first=True,
         )
+        self.lstm_mem.flatten_parameters = lambda: None  # Override to no-op # Edit for TensorTR
 
         self.lstm_q = nn.LSTM(
             embed_size,
@@ -36,6 +37,7 @@ class CTQE(nn.Module):
             dropout=dropout_rate,
             batch_first=True,
         )
+        self.lstm_q.flatten_parameters = lambda: None  # Override to no-op #Edit for TensorTR
 
         self.weight_enc = nn.Linear(embed_size, 150) if lstm_param['bidirectional'] else nn.Linear(int(embed_size/2), 150)
 
