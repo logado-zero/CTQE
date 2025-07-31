@@ -13,5 +13,5 @@ tqdm
 llama-index==0.12.46
 llama-index-retrievers-bm25==0.5.2
 PyStemmer==2.2.0.3
-transformers==4.35.2
+transformers==4.41.0
 peft==0.7.1

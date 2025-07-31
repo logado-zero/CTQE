@@ -45,7 +45,7 @@ class Attention(nn.Module):
         # Vectorized mask creation
         device = attentions.device
         # lengths: (batch_size,) - ensure it's a tensor on the correct device and dtype
-        if not torch.is_tensor(lengths):
+        if not isinstance(lengths, torch.Tensor):
             lengths = torch.tensor(lengths, device=device)
         else:
             lengths = lengths.to(device)

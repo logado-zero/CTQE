@@ -46,6 +46,7 @@ class CTQE(nn.Module):
         self.mutihead_query = nn.MultiheadAttention(embed_size, num_heads, dropout=dropout_rate, batch_first=True)
 
         self.att_query = Attention(embed_size, batch_first=True)
+        # self.att_query = nn.MultiheadAttention(embed_size,1,dropout=dropout_rate, batch_first=True)
         self.att_weight_query = 0
 
         self.mutihead_ctx = nn.MultiheadAttention(embed_size, num_heads, dropout=dropout_rate, batch_first=True)
@@ -85,10 +86,10 @@ class CTQE(nn.Module):
         ### End Edit for TensorTR
 
         # self.cls_output = cls
-
+        
         prediction = cls*prediction + (1-cls)*mean_ids if self.run_cls else prediction
 
 
 
-        # return prediction
-        return prediction, att_weight_query, cls
+        return prediction
+        # return prediction, att_weight_query, cls
